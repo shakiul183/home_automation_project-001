@@ -1,8 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>IoT Control Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; background:#f0f7ff; }
+    h1 { margin-bottom: 10px; color:#333; }
+    .device { background:white; border-radius:10px; padding:16px; margin:20px 0; box-shadow:0 2px 8px rgba(0,0,0,0.1); }
+    .device h2 { margin-top:0; color:#0077b6; }
+    .row { display:flex; gap:15px; flex-wrap:wrap; }
+    .switch { display:flex; align-items:center; gap:12px; }
+    .toggle { cursor:pointer; padding:8px 14px; border-radius:8px; border:1px solid #ccc; font-weight:600; }
+    .on { background:#16a34a; color:white; border-color:#16a34a; }
+    .off { background:#ef4444; color:white; border-color:#ef4444; }
+    .status { font-weight:600; min-width:40px; text-align:center; }
+  </style>
+</head>
+<body>
+
+<h1>IoT Control Dashboard</h1>
+<p id="connStatus">Connecting to MQTT...</p>
+<div id="devices"></div>
+
+<!-- MQTT library -->
 <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+
 <script>
 document.addEventListener("DOMContentLoaded", function() {
 
-  const brokerHost = "13.234.21.33";
+  const brokerHost = "13.234.21.33"; // আপনার EC2 Public IP
   const brokerWebsocketPort = 9001;
 
   const client = mqtt.connect(`ws://${brokerHost}:${brokerWebsocketPort}`, {
@@ -12,7 +39,8 @@ document.addEventListener("DOMContentLoaded", function() {
   });
 
   const deviceList = [
-    { id: 'rpi-01', friendly: 'Raspberry Pi Controller', pins: [17,27,22] }
+    { id: 'rpi-01', friendly: 'Raspberry Pi Controller', pins: [17,27,22] },
+    { id: 'esp32-01', friendly: 'ESP32 Controller', pins: [2,4,5] }
   ];
 
   const devicesDiv = document.getElementById('devices');
@@ -38,6 +66,7 @@ document.addEventListener("DOMContentLoaded", function() {
       `;
       row.appendChild(sw);
 
+      // Toggle button click
       sw.querySelector('button').addEventListener('click', () => {
         const topic = `home/device/${device.id}/gpio/${pin}/set`;
         const current = sw.querySelector(`#status-${device.id}-${pin}`).textContent;
@@ -47,7 +76,7 @@ document.addEventListener("DOMContentLoaded", function() {
     });
   });
 
-  // MQTT ইভেন্ট
+  // MQTT Events
   client.on('connect', () => {
     connStatus.textContent = '✅ Connected to MQTT Broker';
     deviceList.forEach(dev => {
@@ -87,3 +116,6 @@ document.addEventListener("DOMContentLoaded", function() {
 
 });
 </script>
+
+</body>
+</html>
