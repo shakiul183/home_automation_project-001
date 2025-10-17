@@ -3,34 +3,55 @@ from gpiozero import LED
 
 # ---------------- GPIO Configuration ----------------
 gpio_pins = {
-    "pi_led1": LED(17),
-    "pi_led2": LED(27),
-    "pi_led3": LED(22)
+    17: LED(17),
+    27: LED(27),
+    22: LED(22)
 }
 
 # ---------------- MQTT Broker Configuration ----------------
-broker = "13.234.21.33"   # আপনার EC2 public IP বসান
+broker = "13.234.21.33"  # আপনার EC2 Public IP
 port = 1883
-client = mqtt.Client("raspberrypi")  # v1.6.1 compatible
+
+# MQTT Client
+client = mqtt.Client("raspberrypi")
+
+# ---------------- Topic Mapping ----------------
+# Dashboard JS অনুযায়ী topics
+set_topic_map = {
+    17: "home/device/rpi-01/gpio/17/set",
+    27: "home/device/rpi-01/gpio/27/set",
+    22: "home/device/rpi-01/gpio/22/set"
+}
+
+state_topic_map = {
+    17: "home/device/rpi-01/gpio/17/state",
+    27: "home/device/rpi-01/gpio/27/state",
+    22: "home/device/rpi-01/gpio/22/state"
+}
 
 # ---------------- MQTT Callbacks ----------------
 def on_connect(client, userdata, flags, rc):
     print("Connected with result code " + str(rc))
-    for topic in gpio_pins:
+    # সব /set topic subscribe
+    for topic in set_topic_map.values():
         client.subscribe(topic)
-    client.publish("status/pi", "online")
+    print("Subscribed to set topics")
 
 def on_message(client, userdata, msg):
     topic = msg.topic
     payload = msg.payload.decode().upper()
     print(f"{topic}: {payload}")
 
-    if topic in gpio_pins:
-        if payload == "ON":
-            gpio_pins[topic].on()
-        elif payload == "OFF":
-            gpio_pins[topic].off()
-        client.publish(f"status/{topic}", payload)
+    # কোন pin এর topic আসছে check
+    for pin, t in set_topic_map.items():
+        if topic == t:
+            if payload == "ON":
+                gpio_pins[pin].on()
+            elif payload == "OFF":
+                gpio_pins[pin].off()
+            # Corresponding /state topic publish
+            client.publish(state_topic_map[pin], payload)
+            print(f"GPIO {pin} set to {payload}")
 
 # ---------------- MQTT Setup ----------------
 client.on_connect = on_connect
