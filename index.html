@@ -1,83 +1,89 @@
 <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 <script>
-const brokerHost = "13.234.21.33";
-const brokerWebsocketPort = 9001;
+document.addEventListener("DOMContentLoaded", function() {
 
-const client = mqtt.connect(`ws://${brokerHost}:${brokerWebsocketPort}`, {
-  keepalive: 30,
-  reconnectPeriod: 2000,
-  clientId: 'dashboard-' + Math.random().toString(16).substr(2,8)
-});
+  const brokerHost = "13.234.21.33";
+  const brokerWebsocketPort = 9001;
 
-const deviceList = [
-  { id: 'rpi-01', friendly: 'Raspberry Pi Controller', pins: [17,27,22] }
-];
+  const client = mqtt.connect(`ws://${brokerHost}:${brokerWebsocketPort}`, {
+    keepalive: 30,
+    reconnectPeriod: 2000,
+    clientId: 'dashboard-' + Math.random().toString(16).substr(2,8)
+  });
 
-const devicesDiv = document.getElementById('devices');
-const connStatus = document.getElementById('connStatus');
+  const deviceList = [
+    { id: 'rpi-01', friendly: 'Raspberry Pi Controller', pins: [17,27,22] }
+  ];
 
-deviceList.forEach(device => {
-  const devEl = document.createElement('div');
-  devEl.className = 'device';
-  devEl.id = 'dev-' + device.id;
-  devEl.innerHTML = `<h2>${device.friendly}</h2><div class="row" id="row-${device.id}"></div>`;
-  devicesDiv.appendChild(devEl);
+  const devicesDiv = document.getElementById('devices');
+  const connStatus = document.getElementById('connStatus');
 
-  const row = devEl.querySelector(`#row-${device.id}`);
-  device.pins.forEach(pin => {
-    const sw = document.createElement('div');
-    sw.className = 'switch';
-    sw.id = `${device.id}-${pin}`;
-    sw.innerHTML = `
-      <div><strong>GPIO ${pin}</strong></div>
-      <div class="status" id="status-${device.id}-${pin}">—</div>
-      <button class="toggle off" id="btn-${device.id}-${pin}">Turn ON</button>
-    `;
-    row.appendChild(sw);
+  // Device UI তৈরি
+  deviceList.forEach(device => {
+    const devEl = document.createElement('div');
+    devEl.className = 'device';
+    devEl.id = 'dev-' + device.id;
+    devEl.innerHTML = `<h2>${device.friendly}</h2><div class="row" id="row-${device.id}"></div>`;
+    devicesDiv.appendChild(devEl);
 
-    sw.querySelector('button').addEventListener('click', () => {
-      const topic = `home/device/${device.id}/gpio/${pin}/set`;
-      const current = sw.querySelector(`#status-${device.id}-${pin}`).textContent;
-      const newVal = (current === 'ON') ? 'OFF' : 'ON';
-      client.publish(topic, newVal, { qos: 1, retain: false });
+    const row = devEl.querySelector(`#row-${device.id}`);
+    device.pins.forEach(pin => {
+      const sw = document.createElement('div');
+      sw.className = 'switch';
+      sw.id = `${device.id}-${pin}`;
+      sw.innerHTML = `
+        <div><strong>GPIO ${pin}</strong></div>
+        <div class="status" id="status-${device.id}-${pin}">—</div>
+        <button class="toggle off" id="btn-${device.id}-${pin}">Turn ON</button>
+      `;
+      row.appendChild(sw);
+
+      sw.querySelector('button').addEventListener('click', () => {
+        const topic = `home/device/${device.id}/gpio/${pin}/set`;
+        const current = sw.querySelector(`#status-${device.id}-${pin}`).textContent;
+        const newVal = (current === 'ON') ? 'OFF' : 'ON';
+        client.publish(topic, newVal, { qos: 1, retain: false });
+      });
     });
   });
-});
 
-client.on('connect', () => {
-  connStatus.textContent = '✅ Connected to MQTT Broker';
-  deviceList.forEach(dev => {
-    dev.pins.forEach(pin => {
-      const stateTopic = `home/device/${dev.id}/gpio/${pin}/state`;
-      client.subscribe(stateTopic, { qos: 1 });
+  // MQTT ইভেন্ট
+  client.on('connect', () => {
+    connStatus.textContent = '✅ Connected to MQTT Broker';
+    deviceList.forEach(dev => {
+      dev.pins.forEach(pin => {
+        const stateTopic = `home/device/${dev.id}/gpio/${pin}/state`;
+        client.subscribe(stateTopic, { qos: 1 });
+      });
     });
   });
-});
 
-client.on('reconnect', () => connStatus.textContent = 'Reconnecting...');
-client.on('error', (err) => { console.error(err); connStatus.textContent='MQTT error'; });
+  client.on('reconnect', () => connStatus.textContent = 'Reconnecting...');
+  client.on('error', (err) => { console.error(err); connStatus.textContent='MQTT error'; });
 
-client.on('message', (topic, payload) => {
-  const msg = payload.toString();
-  const m = topic.split('/');
-  if (m.length >= 6 && m[0]==='home' && m[1]==='device' && m[3]==='gpio' && m[5]==='state') {
-    const deviceId = m[2];
-    const pin = m[4];
-    updateUIState(deviceId, pin, msg);
+  client.on('message', (topic, payload) => {
+    const msg = payload.toString();
+    const m = topic.split('/');
+    if (m.length >= 6 && m[0]==='home' && m[1]==='device' && m[3]==='gpio' && m[5]==='state') {
+      const deviceId = m[2];
+      const pin = m[4];
+      updateUIState(deviceId, pin, msg);
+    }
+  });
+
+  function updateUIState(deviceId, pin, state) {
+    const statusEl = document.getElementById(`status-${deviceId}-${pin}`);
+    const btnEl = document.getElementById(`btn-${deviceId}-${pin}`);
+    if (!statusEl || !btnEl) return;
+    statusEl.textContent = state;
+    if (state === 'ON') {
+      btnEl.classList.remove('off'); btnEl.classList.add('on');
+      btnEl.textContent = 'Turn OFF';
+    } else {
+      btnEl.classList.remove('on'); btnEl.classList.add('off');
+      btnEl.textContent = 'Turn ON';
+    }
   }
-});
 
-function updateUIState(deviceId, pin, state) {
-  const statusEl = document.getElementById(`status-${deviceId}-${pin}`);
-  const btnEl = document.getElementById(`btn-${deviceId}-${pin}`);
-  if (!statusEl || !btnEl) return;
-  statusEl.textContent = state;
-  if (state === 'ON') {
-    btnEl.classList.remove('off'); btnEl.classList.add('on');
-    btnEl.textContent = 'Turn OFF';
-  } else {
-    btnEl.classList.remove('on'); btnEl.classList.add('off');
-    btnEl.textContent = 'Turn ON';
-  }
-}
+});
 </script>
