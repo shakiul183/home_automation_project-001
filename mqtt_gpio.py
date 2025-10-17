@@ -12,27 +12,27 @@ gpio_pins = {
 # ---------------- MQTT Broker Configuration ----------------
 broker = "13.234.21.33"   # এখানে আপনার AWS EC2 public IP বসান
 port = 1883
-client = mqtt.Client("raspberrypi")
+client = mqtt.Client(client_id="raspberrypi", callback_api_version=4)
 
 # ---------------- MQTT Callbacks ----------------
 def on_connect(client, userdata, flags, rc):
     print("Connected with result code " + str(rc))
-    # সব টপিক সাবস্ক্রাইব করা
+    # সব GPIO টপিক সাবস্ক্রাইব করা
     for topic in gpio_pins:
         client.subscribe(topic)
-    # স্টেটাস পাঠানো
+    # Pi স্টেটাস Dashboard-এ পাঠানো
     client.publish("status/pi", "online")
 
 def on_message(client, userdata, msg):
     topic = msg.topic
-    payload = msg.payload.decode()
+    payload = msg.payload.decode().upper()
     print(f"{topic}: {payload}")
 
-    # নির্দিষ্ট টপিক অনুযায়ী GPIO অন/অফ করা
+    # GPIO control
     if topic in gpio_pins:
-        if payload.upper() == "ON":
+        if payload == "ON":
             gpio_pins[topic].on()
-        elif payload.upper() == "OFF":
+        elif payload == "OFF":
             gpio_pins[topic].off()
         # Dashboard-এ লাইভ স্টেটাস পাঠানো
         client.publish(f"status/{topic}", payload)
