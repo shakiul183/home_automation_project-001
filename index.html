@@ -38,15 +38,16 @@ document.addEventListener("DOMContentLoaded", function() {
     clientId: 'dashboard-' + Math.random().toString(16).substr(2,8)
   });
 
+  // Device configuration
   const deviceList = [
     { id: 'rpi-01', friendly: 'Raspberry Pi Controller', pins: [17,27,22] },
-    { id: 'esp32-01', friendly: 'ESP32 Controller', pins: [2,4,5] }
+    { id: 'esp32-01', friendly: 'ESP32 Controller', pins: [16] }
   ];
 
   const devicesDiv = document.getElementById('devices');
   const connStatus = document.getElementById('connStatus');
 
-  // Device UI তৈরি
+  // Generate UI
   deviceList.forEach(device => {
     const devEl = document.createElement('div');
     devEl.className = 'device';
@@ -71,6 +72,7 @@ document.addEventListener("DOMContentLoaded", function() {
         const topic = `home/device/${device.id}/gpio/${pin}/set`;
         const current = sw.querySelector(`#status-${device.id}-${pin}`).textContent;
         const newVal = (current === 'ON') ? 'OFF' : 'ON';
+        console.log(`Publishing ${newVal} to ${topic}`);
         client.publish(topic, newVal, { qos: 1, retain: false });
       });
     });
@@ -83,6 +85,7 @@ document.addEventListener("DOMContentLoaded", function() {
       dev.pins.forEach(pin => {
         const stateTopic = `home/device/${dev.id}/gpio/${pin}/state`;
         client.subscribe(stateTopic, { qos: 1 });
+        console.log(`Subscribed to ${stateTopic}`);
       });
     });
   });
@@ -92,6 +95,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
   client.on('message', (topic, payload) => {
     const msg = payload.toString();
+    console.log(`Received on ${topic}: ${msg}`);
     const m = topic.split('/');
     if (m.length >= 6 && m[0]==='home' && m[1]==='device' && m[3]==='gpio' && m[5]==='state') {
       const deviceId = m[2];
